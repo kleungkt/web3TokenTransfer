@@ -30,7 +30,7 @@ Enter ./web3 folder and run the following command to start the web server
 
 ### `npm run start`
 
-The project should starts at [http://localhost:3000](http://localhost:3000)
+The project should starts at [https://localhost:3000](https://localhost:3000)
 
 If you want to deploy your smart contract, you can enter ./smart_contracts/ and run
 ### `npx hardhat run scripts/deploy.js --network {networkName} pk={yourPrivateKey}`
