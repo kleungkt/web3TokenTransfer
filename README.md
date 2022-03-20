@@ -33,7 +33,7 @@ Enter ./web3 folder and run the following command to start the web server
 The project should starts at [http://localhost:3000](http://localhost:3000)
 
 If you want to deploy your smart contract, you can enter ./smart_contracts/ and run
-### `npx hardhat run scripts/deploy.js --network {networkName} pk={yourPrivateKey}
+### `npx hardhat run scripts/deploy.js --network {networkName} pk={yourPrivateKey}`
 Remember to replace networkName and yourPrivateKey with {ropsten/rinkeby} and your private key
 
 I have implemented 3 methods to transfer token, you can refer to [TransactionsContext.jsx](./web3/src/context/TransactionsContext.jsx) for more details.
