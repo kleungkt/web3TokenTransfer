@@ -10,14 +10,19 @@ At the same time, in the backend, the actual token transaction event is subscrib
 The project runs on Rinkeby Ethereum testnet, you can change it [here](./web3/src/utils/constants.js)
 
 # Some capscreens
+Starting Page
 ![Starting Page](./screenshots/1.jpeg)
 
+After connecting wallet
 ![After connecting wallet](./screenshots/2.jpeg)
 
+After clicking transfer button, metamask page is shown
 ![After clicking transfer button, metamask page is shown](./screenshots/3.jpeg)
 
+After confirming on metemask
 ![After confirming on metemask](./screenshots/4.jpeg)
 
+After the transaction is confirmed on blockchain, print the details to console
 ![After the transaction is confirmed on blockchain, print the details to console](./screenshots/5.jpeg)
 
 # Getting Started
