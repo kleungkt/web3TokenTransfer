@@ -11,7 +11,8 @@ const FormPage = () => {
     <Form>
       <Form.Group className="mb-3" controlId="addressTo">
         <Form.Label>Address To</Form.Label>
-        <Form.Control placeholder="Recipient Address" onChange={(e) => {handleChange(e, "addressTo")}}/>
+        <Form.Label>(Multiple addresses are supported, please use comma to seperate addresses)</Form.Label>
+        <Form.Control as="textarea" placeholder="Recipient Address" onChange={(e) => {handleChange(e, "addressTo")}}/>
         
       </Form.Group>
 
@@ -26,7 +27,7 @@ const FormPage = () => {
         Transfer
       </Button>
       {isLoading? <div><Loader style={{marginTop: '1rem'}}></Loader></div>: <></>}
-      <div className="mb-3">{confirmedText}</div>
+      <div className="mb-3 ConfirmedText">{confirmedText}</div>
     </Form>
     </Card>
   );

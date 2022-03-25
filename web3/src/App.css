@@ -48,3 +48,6 @@
 .Loader {
   margin-top: 1rem;
 }
+.ConfirmedText {
+  white-space: pre-line;
+}

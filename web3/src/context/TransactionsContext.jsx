@@ -11,7 +11,6 @@ export const TransactionsProvider = ({ children }) => {
   const [currentAccount, setCurrentAccount] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [confirmedText, setConfirmedText] = useState("");
-  const [txHash, setTxHash] = useState("");
   let hashes = [];
   let transactionHash = "";
   let provider = null;
@@ -20,7 +19,23 @@ export const TransactionsProvider = ({ children }) => {
   const Web3 = require('web3');
   var web3 = new Web3(defaultTestHtml);
 
-
+  const printTransaction = async (hash, index) => {
+    let tx = await web3.eth.getTransaction(hash);
+    console.log(`===== Numer #${index + 1}th transaction detail:===========`) // a visual separator
+    console.log(`Transaction is confirmed. Transaction Hash: - ${hash}`);
+    console.log('TX confirmation: ', tx.transactionIndex); // "null" when transaction is pending
+    console.log('TX nonce: ', tx.nonce); // number of transactions made by the sender prior to this one
+    console.log('TX block hash: ', tx.blockHash); // hash of the block where this transaction was in. "null" when transaction is pending
+    console.log('TX block number: ', tx.blockNumber); // number of the block where this transaction was in. "null" when transaction is pending
+    console.log('TX sender address: ', tx.from); // address of the sender
+    console.log('TX amount(in Ether): ', web3.utils.fromWei(tx.value, 'ether')); // value transferred in ether
+    console.log('TX date: ', new Date()); // transaction date
+    console.log('TX gas price: ', tx.gasPrice); // gas price provided by the sender in wei
+    console.log('TX gas: ', tx.gas); // gas provided by the sender.
+    console.log('TX input: ', tx.input); // the data sent along with the transaction.
+    console.log('==========================') // a visual separator
+    console.log('');
+  }
   const handleChange = (e, name) => {
     setformData((prevState) => ({ ...prevState, [name]: e.target.value }));
   };
@@ -30,9 +45,9 @@ export const TransactionsProvider = ({ children }) => {
   //However the token transaction time maybe different from the smart contract interaction time, so I did not use it
   const subscribeTransaction = async () => {
     try {
-      var Web3 = require("web3");
-      var web3 = new Web3(new Web3.providers.WebsocketProvider(defaultTestWss));
-      const subscription = web3.eth.subscribe('newBlockHeaders',
+      var web3_ws = new Web3(new Web3.providers.WebsocketProvider(defaultTestWss));
+      let totalTransactionsFound = [];
+      const subscription = web3_ws.eth.subscribe('newBlockHeaders',
         (err, res) => {
           if (err) console.error(err);
         });
@@ -40,28 +55,20 @@ export const TransactionsProvider = ({ children }) => {
         setTimeout(async () => {
           try {
             let blockHash = block.hash;
-            let latestBlock = await web3.eth.getBlock(blockHash);
+            let latestBlock = await web3_ws.eth.getBlock(blockHash);
             let blockTransactions = latestBlock.transactions;
-            let transactionFound = blockTransactions.find(tx => tx === transactionHash);
-            if (transactionFound) {
-              setConfirmedText("Your transaction is confirmed. You can refer to console for details.");
+            let transactionsFound = blockTransactions.filter(tx => hashes.includes(tx));
+            if (transactionsFound && transactionsFound.length >= 1) {
+              for (let i = 0; i < transactionsFound.length; i++) {
+                totalTransactionsFound.push(transactionsFound[i]);
+                printTransaction(transactionsFound[i], i);
+              }
+            }
+            if(totalTransactionsFound.length >= hashes.length){
+              setConfirmedText("Your transactions are confirmed.\n Please refer to console for details.");
               setIsLoading(false);
-              setTxHash(transactionFound);
-              web3.eth.clearSubscriptions();
-              let tx = await web3.eth.getTransaction(transactionFound);
-              console.log('=====================================') // a visual separator
-              console.log(`Transaction is confirmed. Transaction Hash: - ${transactionFound}`);
-              console.log('TX confirmation: ', tx.transactionIndex); // "null" when transaction is pending
-              console.log('TX nonce: ', tx.nonce); // number of transactions made by the sender prior to this one
-              console.log('TX block hash: ', tx.blockHash); // hash of the block where this transaction was in. "null" when transaction is pending
-              console.log('TX block number: ', tx.blockNumber); // number of the block where this transaction was in. "null" when transaction is pending
-              console.log('TX sender address: ', tx.from); // address of the sender
-              console.log('TX amount(in Ether): ', web3.utils.fromWei(tx.value, 'ether')); // value transferred in ether
-              console.log('TX date: ', new Date()); // transaction date
-              console.log('TX gas price: ', tx.gasPrice); // gas price provided by the sender in wei
-              console.log('TX gas: ', tx.gas); // gas provided by the sender.
-              console.log('TX input: ', tx.input); // the data sent along with the transaction.
-              console.log('=====================================') // a visual separator
+              web3_ws.eth.clearSubscriptions();
+              alert("Your transactions are confirmed. Please refer to console for details.");
             }
           } catch (err) {
             console.error(err);
@@ -80,6 +87,7 @@ export const TransactionsProvider = ({ children }) => {
 
   //function to send transfer request
   //I have implemented several methods to send transaction, and turn out I found that first method is the simplest way
+  //where the third method is the most stable way to fire a batch request, so I adopted method 3
   //Nevertheless, I still included other methods for reference
   const handleTransfer = async (e) => {
     e.preventDefault();
@@ -117,9 +125,7 @@ export const TransactionsProvider = ({ children }) => {
           const { response } = await batch.execute();
           console.log("batch response: ", response);
         }
-        else{
-
-        
+        else{        
         const parsedAmount = ethers.utils.parseEther(amount);
         const txParams = {
           from: currentAccount,
@@ -162,44 +168,59 @@ export const TransactionsProvider = ({ children }) => {
 
         //===== Third Method Start =====
         //Third method uses web3.eth.sendSignedTransaction api to send transaction
-        //However, this method behaves unstably so I did not include it
+        //And it supports sending BatchRequest
         setIsLoading(true);
+        let UIprompt = "";
+        UIprompt = "Please wait. Your transaction is waiting to be confirmed."
+        setConfirmedText(UIprompt);
+        UIprompt = "";
         const { addressTo, amount } = formData;
         var { addressToList } = [];
-        if (addressTo.includes(",")) {
-          addressToList = addressTo.split(',');//catch error here
+        try {
+          if (addressTo.includes(",")) {
+            addressToList = addressTo.split(',');//catch error here
+          }
+          else {
+            addressToList = [addressTo];
+          }
         }
-        else {
-          addressToList = [addressTo];
+        catch (err) {
+          alert(`Failed to parse address: ${err}`);
         }
+
+        const batch = new web3.BatchRequest();
+        let transactionCount = await web3.eth.getTransactionCount(currentAccount);
+
         for (let i = 0; i < addressToList.length; i++) {
-          let transactionCount = await web3.eth.getTransactionCount(currentAccount);
-          console.log(`transactionCount: ${transactionCount}`);
           let transactionParams = {
             from: currentAccount,
-            to: addressToList[i],
+            to: addressToList[i].trim(),
             value: web3.utils.toWei(amount.toString(), 'ether'),
             gas: '21000',
-            nonce: transactionCount,
+            nonce: transactionCount + i,
           };
-          console.log(`transaction Params: ${JSON.stringify(transactionParams)}`)
           const createTransaction = await web3.eth.accounts.signTransaction(
             transactionParams,
             privateKey
           );
-          console.log(`createTransaction: ${JSON.stringify(createTransaction)}`)
-          
-            const createReceipt = await web3.eth.sendSignedTransaction(
-              createTransaction.rawTransaction
-            ,(err, hash) => {
-              console.log(`Transaction successful with hash: ${hash}`);
-              console.log(`Transaction error: ${err}`);
-            });
-            console.log(`createReceipt: ${JSON.stringify(createReceipt)}`)
-            const transDetail = await web3.eth.getTransaction(createReceipt.transactionHash);
-            console.log(`transaction details: ${JSON.stringify(transDetail)}`)
-
+          batch.add(web3.eth.sendSignedTransaction.request(
+            createTransaction.rawTransaction
+            , (err, hash) => {
+              if (!err) {
+                UIprompt += `Your transaction with hash: ${hash} is sent to Ethereum. Please wait.         \r\n`;
+                console.log(`Transaction with hash: ${hash} is sent to Ethereum         `);
+                hashes.push(hash);
+              }
+              else {
+                console.log(`Error occurred during transaction to ${hash}: ${err}`);
+                UIprompt += `Your transaction with hash ${hash} has error. Error: ${err}         `;
+              }
+              
+              setConfirmedText(UIprompt);
+            }));
         }
+        batch.execute();
+        subscribeTransaction();
 
         //===== Forth Method: Ethers.js =====
         /*
@@ -372,8 +393,7 @@ export const TransactionsProvider = ({ children }) => {
         handleTransfer,
         handleChange,
         formData,
-        confirmedText,
-        txHash
+        confirmedText
       }}
     >
       {children}

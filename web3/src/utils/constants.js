@@ -7,4 +7,4 @@ export const ropstenWss = 'wss://ropsten.infura.io/ws/v3/2bdf1c37b60147b598123ed
 export const ropstenHtml = 'https://ropsten.infura.io/v3/2bdf1c37b60147b598123edc3e903793';
 export const rinkebyWss = 'wss://rinkeby.infura.io/ws/v3/2bdf1c37b60147b598123edc3e903793'
 export const rinkebyHtml = 'https://rinkeby.infura.io/v3/2bdf1c37b60147b598123edc3e903793';
-export const privateKey = process.env.pk;
+export const privateKey = "PLEASE REPLACE YOUR PRIVATE KEY HERE";
