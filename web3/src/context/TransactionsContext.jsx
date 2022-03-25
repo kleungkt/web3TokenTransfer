@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { rinkebyHtml, rinkebyWss } from "../utils/constants.js";
-//import { contractABI, contractAddress, privateKey } from "../utils/constants.js"; //these imports are for method 2/3(see below)
+import { contractABI, contractAddress, privateKey } from "../utils/constants.js"; //these imports are for method 2/3(see below)
 import { ethers } from "ethers";
 export const TransactionContext = React.createContext();
 
@@ -17,8 +17,10 @@ export const TransactionsProvider = ({ children }) => {
   let provider = null;
   const defaultTestHtml = rinkebyHtml;
   const defaultTestWss = rinkebyWss; //please note that the default testnet is chosen as rinkeby, you may change the address in ../utils/constants.js
-  
-  
+  const Web3 = require('web3');
+  var web3 = new Web3(defaultTestHtml);
+
+
   const handleChange = (e, name) => {
     setformData((prevState) => ({ ...prevState, [name]: e.target.value }));
   };
@@ -75,7 +77,7 @@ export const TransactionsProvider = ({ children }) => {
       throw new Error("Subscription failed");
     }
   }
-  
+
   //function to send transfer request
   //I have implemented several methods to send transaction, and turn out I found that first method is the simplest way
   //Nevertheless, I still included other methods for reference
@@ -85,7 +87,39 @@ export const TransactionsProvider = ({ children }) => {
       if (window.ethereum) {
         //===== First Method Start =====
         //First method is using window.ethereum.request from metamask to send transaction
+        /*
         const { addressTo, amount } = formData;
+        var { addressToList } = [];
+        
+        if(addressTo.includes(",")){
+          addressToList = addressTo.split(',');
+        }
+        console.log("addressToList", addressToList);
+        if(addressToList && addressToList.length > 1){
+          var Web3 = require("web3");
+          var web3 = new Web3(new Web3.providers.WebsocketProvider(defaultTestWss));
+          const batch = new web3.BatchRequest();
+          for(let i = 0; i < addressToList.length; i++){
+            const parsedAmount = ethers.utils.parseEther(amount);
+            const txParams = {
+              from: currentAccount,
+              to: addressToList[i],
+              gas: "0x5208",
+              value: parsedAmount._hex,
+            };
+            var request = window.ethereum.request({
+              method: "eth_sendTransaction",
+              params: [txParams],
+            }, (err, res) => {console.log(err, res)});
+            var callBack = (err, res) => {console.log(err, res);}
+            batch.add(request, callBack);
+          }
+          const { response } = await batch.execute();
+          console.log("batch response: ", response);
+        }
+        else{
+
+        
         const parsedAmount = ethers.utils.parseEther(amount);
         const txParams = {
           from: currentAccount,
@@ -101,6 +135,8 @@ export const TransactionsProvider = ({ children }) => {
         setConfirmedText(`Please wait. Your transaction is waiting to be confirmed. Transaction Hash: ${transactionHash}`);
         setIsLoading(true);
         subscribeTransaction();
+      }
+      */
         //===== First Method End =====
 
         //===== Second Method Start =====
@@ -127,47 +163,171 @@ export const TransactionsProvider = ({ children }) => {
         //===== Third Method Start =====
         //Third method uses web3.eth.sendSignedTransaction api to send transaction
         //However, this method behaves unstably so I did not include it
-        /*
-        const Web3 = require('web3');
-        var web3 = new Web3(defaultTestHtml);
-        var Tx = require('ethereumjs-tx').Transaction;
-        var transactionCount = await web3.eth.getTransactionCount(currentAccount)
-        const accountNonce = '0x' + (transactionCount + 1).toString(16);
-        const latestBlock = await web3.eth.getBlock("latest");
-        var gasLimit = web3.utils.toHex(latestBlock.gasLimit);
-        console.log(`gasLimit:${gasLimit}`);
-        var gasPrice = "";
-        web3.eth.getGasPrice()
-        .then((result) => {
-          gasPrice = web3.utils.toHex(result);
-        })
-        var rawTx = {
-          nonce: accountNonce,
-          to: addressTo,
-          gasPrice: '0x59637a5e',
-          gasLimit: gasLimit,
-          value: parsedAmount._hex
+        setIsLoading(true);
+        const { addressTo, amount } = formData;
+        var { addressToList } = [];
+        if (addressTo.includes(",")) {
+          addressToList = addressTo.split(',');//catch error here
         }
-        var tx = new Tx(rawTx, {'chain': 'rinkeby'})
-        var privateKeyBuffer = Buffer.from(privateKey, 'hex')
-        tx.sign(privateKeyBuffer)
-        var serializedTx = tx.serialize();
-        
-        var secondHash = "";
-        web3.eth.sendSignedTransaction('0x' + serializedTx.toString('hex'))
-        .on("transactionHash", (hash) => {
-          secondHash = hash;
-          transactionHash = secondHash;
-        })
-        .on("receipt", (receipt) => {
-          console.log("Transfer receipt is avilable.");
-        })
-        .on('confirmation', (confirmationNumber, receipt, latestBlockHash) => {
-          console.log("Transfer confirmed!");
-          console.log(`confirmation number: ${confirmationNumber}`);
-          console.log(`latestBlockHash: ${latestBlockHash}`);
-        })
+        else {
+          addressToList = [addressTo];
+        }
+        for (let i = 0; i < addressToList.length; i++) {
+          let transactionCount = await web3.eth.getTransactionCount(currentAccount);
+          console.log(`transactionCount: ${transactionCount}`);
+          let transactionParams = {
+            from: currentAccount,
+            to: addressToList[i],
+            value: web3.utils.toWei(amount.toString(), 'ether'),
+            gas: '21000',
+            nonce: transactionCount,
+          };
+          console.log(`transaction Params: ${JSON.stringify(transactionParams)}`)
+          const createTransaction = await web3.eth.accounts.signTransaction(
+            transactionParams,
+            privateKey
+          );
+          console.log(`createTransaction: ${JSON.stringify(createTransaction)}`)
+          
+            const createReceipt = await web3.eth.sendSignedTransaction(
+              createTransaction.rawTransaction
+            ,(err, hash) => {
+              console.log(`Transaction successful with hash: ${hash}`);
+              console.log(`Transaction error: ${err}`);
+            });
+            console.log(`createReceipt: ${JSON.stringify(createReceipt)}`)
+            const transDetail = await web3.eth.getTransaction(createReceipt.transactionHash);
+            console.log(`transaction details: ${JSON.stringify(transDetail)}`)
+
+        }
+
+        //===== Forth Method: Ethers.js =====
+        /*
+        setIsLoading(true);
+        const { addressTo, amount } = formData;
+        var { addressToList } = [];
+        const  Tx  = require('@ethereumjs/tx');
+        const  Common  = require('@ethereumjs/common');
+        const common = new Common.default({ chain: 'rinkeby' });
+        if(addressTo.includes(",")){
+          addressToList = addressTo.split(',');
+        }
+        else{
+          addressToList = [addressTo];
+        }
+        const batch = new web3.BatchRequest();
+          for(let i = 0; i < addressToList.length; i++){
+            const parsedAmount = web3.utils.toWei(amount, 'ether');
+            var newNonce = "";
+            let transactionCount = await web3.eth.getTransactionCount(currentAccount);
+
+            const transactionParams = 
+              {
+                from: currentAccount,
+                to: addressToList[i],
+                value: parsedAmount._hex,
+                gasLimit: web3.utils.toHex(21000),
+                gasPrice: web3.utils.toHex(10e9),
+                //...i !== 0 && {nonce: newNonce}
+                nonce: transactionCount + 1
+              };
+            var tx = Tx.Transaction.fromTxData(transactionParams, {common});
+            const pk = Buffer.from(privateKey, 'hex');
+            const signedTx = tx.sign(pk);
+            console.log(`signedTx: ${JSON.stringify(signedTx)}`);
+            const serializedTx = signedTx.serialize()
+            
+            let rawReceipt = await web3.eth.accounts.signTransaction(
+              transactionParams,
+              privateKey
+            );
+            
+            console.log(`Raw Receipt:${JSON.stringify(rawReceipt)}`);
+            /*
+            batch.add(web3.eth.sendSignedTransaction.request(
+              rawReceipt.transactionHash
+            , (error, receipt) => {
+              console.log(`error from sendsigntrans: ${error}`);
+              let txHash = receipt.transactionHash;
+              setConfirmedText("Your transaction is confirmed. You can refer to console for details.");
+              setIsLoading(false);
+              let tx = "";
+              web3.eth.getTransaction(txHash)
+              .then((trans) => {tx = trans})
+              newNonce = parseInt(tx.nonce) + 1;
+              console.log('=====================================') // a visual separator
+              console.log(`Transaction is confirmed. Transaction Hash: - ${txHash}`);
+              console.log('TX confirmation: ', tx.transactionIndex); // "null" when transaction is pending
+              console.log('TX nonce: ', tx.nonce); // number of transactions made by the sender prior to this one
+              console.log('TX block hash: ', tx.blockHash); // hash of the block where this transaction was in. "null" when transaction is pending
+              console.log('TX block number: ', tx.blockNumber); // number of the block where this transaction was in. "null" when transaction is pending
+              console.log('TX sender address: ', tx.from); // address of the sender
+              console.log('TX amount(in Ether): ', web3.utils.fromWei(tx.value, 'ether')); // value transferred in ether
+              console.log('TX date: ', new Date()); // transaction date
+              console.log('TX gas price: ', tx.gasPrice); // gas price provided by the sender in wei
+              console.log('TX gas: ', tx.gas); // gas provided by the sender.
+              console.log('TX input: ', tx.input); // the data sent along with the transaction.
+              console.log('=====================================') // a visual separator
+    
+            }))
+            console.log(`rawReceipt.tranHash:${rawReceipt.transactionHash}`);
+            web3.eth.sendSignedTransaction(web3.utils.toHex(serializedTx))
+            .on('receipt', console.log)
+            .catch(e => console.log('error: ', e));
+            web3.eth.sendSignedTransaction(
+              rawReceipt.transactionHash
+            ).then((receipt) => {
+              console.log(`Trasaction successful with has: ${receipt.transactionHash}`);
+            })
+          }
         */
+
+
+
+        //=====
+        /*
+           var Tx = require('ethereumjs-tx').Transaction;
+           var transactionCount = await web3.eth.getTransactionCount(currentAccount)
+           const accountNonce = '0x' + (transactionCount + 1).toString(16);
+           const latestBlock = await web3.eth.getBlock("latest");
+           //var gasLimit = web3.utils.toHex(latestBlock.gasLimit);
+           var gasLimit = web3.utils.toHex(21000);
+           console.log(`gasLimit:${gasLimit}`);
+           var gasPrice = "";
+           web3.eth.getGasPrice()
+           .then((result) => {
+             //gasPrice = web3.utils.toHex(result);
+             gasPrice = web3.utils.toWei("1500000000");
+             console.log(`gasPrice:${gasPrice}`);
+           })
+           var rawTx = {
+             nonce: accountNonce,
+             to: addressTo,
+             gasPrice: '0x59637a5e',
+             gasLimit: gasLimit,
+             value: parsedAmount._hex
+           }
+           var tx = new Tx(rawTx, {'chain': 'rinkeby'})
+           var privateKeyBuffer = Buffer.from(privateKey, 'hex')
+           //tx.sign(privateKeyBuffer)
+           var serializedTx = tx.serialize();
+           
+           var secondHash = "";
+           
+           web3.eth.sendTransaction('0x' + serializedTx.toString('hex'))
+           .on("transactionHash", (hash) => {
+             secondHash = hash;
+             transactionHash = secondHash;
+           })
+           .on("receipt", (receipt) => {
+             console.log("Transfer receipt is avilable.");
+           })
+           .on('confirmation', (confirmationNumber, receipt, latestBlockHash) => {
+             console.log("Transfer confirmed!");
+             console.log(`confirmation number: ${confirmationNumber}`);
+             console.log(`latestBlockHash: ${latestBlockHash}`);
+           })
+           */
         //===== Third Method End =====
 
 
